@@ -234,5 +234,6 @@
   "roleManagement.editButton.buttonText": "Edit",
   "roleManagement.duplicateButton.buttonText": "Duplicate",
   "roleManagement.deleteButton.buttonText": "Delete",
-  "clearSelected": "Clear Selection"
+  "clearSelected": "Clear Selection",
+  "selectAll": "Select All"
 }

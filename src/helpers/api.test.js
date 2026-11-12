@@ -137,6 +137,10 @@ describe("formatMutation", () => {
 });
 
 describe("decodeId / encodeId", () => {
+  it("returns a dashed UUID unchanged", () => {
+    expect(decodeId("0b5a9d3e-6f7c-4c8e-9a41-2d7f5e1c8b36")).toBe("0b5a9d3e-6f7c-4c8e-9a41-2d7f5e1c8b36");
+  });
+
   it("returns a purely numeric id untouched", () => {
     expect(decodeId("42")).toBe("42");
   });

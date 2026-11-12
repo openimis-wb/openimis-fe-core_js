@@ -4,7 +4,7 @@ import TextInput from "./TextInput";
 import { injectIntl } from "react-intl";
 import { formatMessage, formatMessageWithValues } from "../../helpers/i18n";
 import withModulesManager from "../../helpers/modules";
-import { getDecimalPlaces, parseLocalizedNumber } from "../../helpers/utils";
+import { getDecimalPlaces, getNumberSeparators, parseLocalizedNumber } from "../../helpers/utils";
 
 const StyledFormattedNumberInput = styled("div")(({ theme }) => ({}));
 
@@ -33,9 +33,29 @@ class FormattedNumberInput extends Component {
     }
   }
 
+  usesDecimalComma = () => getNumberSeparators(this.props.thousandSeparator).decimal === ",";
+
+  // Locales that write the decimal separator as a comma: the last separator of the text is
+  // the decimal one when both appear, a separator that appears once is the decimal one and
+  // a separator that is repeated groups digits. The result uses "." as the decimal point.
+  normalizeDecimalCommaInput = (text) => {
+    const hasComma = text.includes(",");
+    const hasDot = text.includes(".");
+    if (hasComma && hasDot) {
+      const decimal = text.lastIndexOf(",") > text.lastIndexOf(".") ? "," : ".";
+      const grouping = decimal === "," ? "." : ",";
+      return text.split(grouping).join("").replace(decimal, ".");
+    }
+    if (!hasComma && !hasDot) return text;
+    const separator = hasComma ? "," : ".";
+    if (text.split(separator).length > 2) return text.split(separator).join("");
+    return text.replace(separator, ".");
+  };
+
   normalizeNumberInput = (raw) => {
     if (!raw) return "";
     let normalized = raw.replace(/\s/g, "");
+    if (this.usesDecimalComma()) return this.normalizeDecimalCommaInput(normalized);
     const hasComma = normalized.includes(",");
     const hasDot = normalized.includes(".");
     
@@ -73,6 +93,7 @@ class FormattedNumberInput extends Component {
 
   parseRawValue = (raw) => {
     const normalized = this.normalizeNumberInput(raw);
+    if (this.usesDecimalComma()) return parseFloat(normalized);
     return parseLocalizedNumber(normalized, this.props.thousandSeparator);
   };
 
@@ -88,8 +109,7 @@ class FormattedNumberInput extends Component {
     const raw = val;
     this.setState({ rawValue: raw });
     
-    const normalized = this.normalizeNumberInput(raw);
-    const value = parseLocalizedNumber(normalized, this.props.thousandSeparator);
+    const value = this.parseRawValue(raw);
     
     if (!Object.is(value, this.props.value)) {
       this.props.onChange(Number.isNaN(value) ? undefined : value);
@@ -150,8 +170,7 @@ class FormattedNumberInput extends Component {
 
     let err = error;
 
-    const normalized = this.normalizeNumberInput(this.state.rawValue);
-    const numericValue = parseLocalizedNumber(normalized, this.props.thousandSeparator);
+    const numericValue = this.parseRawValue(this.state.rawValue);
 
     if (min != null && numericValue < min) {
       err = formatMessageWithValues(intl, module, "validation.minValue", { value: numericValue, min });

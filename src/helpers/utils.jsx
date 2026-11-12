@@ -351,6 +351,14 @@ export function getDecimalPlaces(value) {
   return str.split(".")[1]?.length || 0;
 }
 
+export function getNumberSeparators(locale = "en") {
+  const parts = new Intl.NumberFormat(locale).formatToParts(1234567.89);
+  return {
+    group: parts.find((part) => part.type === "group")?.value ?? "",
+    decimal: parts.find((part) => part.type === "decimal")?.value ?? ".",
+  };
+}
+
 export function parseLocalizedNumber(raw, locale = "en") {
   if (raw == null || raw === "") return NaN;
 

@@ -57,9 +57,29 @@ function getCsrfToken() {
   return csrfCookie?.split('=')[1] ?? CSRF_NOT_FOUND;
 }
 
+const requestHeaderProviders = new Set();
+
+// Registers a function whose returned headers are added to every API request.
+// Returns the function that removes the registration.
+export function registerRequestHeaderProvider(provider) {
+  requestHeaderProviders.add(provider);
+  return () => requestHeaderProviders.delete(provider);
+}
+
+function providedRequestHeaders() {
+  const headers = {};
+  requestHeaderProviders.forEach((provider) => {
+    Object.entries(provider() || {}).forEach(([name, value]) => {
+      if (value !== undefined && value !== null && value !== "") headers[name] = value;
+    });
+  });
+  return headers;
+}
+
 export function apiHeaders() {
   let headers = {
     "Content-Type": "application/json",
+    ...providedRequestHeaders(),
   };
   return headers;
 }
@@ -267,6 +287,7 @@ export function fetch(config) {
             "Content-Type": "application/json",
             "X-Requested-With": "XMLHttpRequest",
             "X-CSRFToken": csrfToken,
+            ...providedRequestHeaders(),
             ...config.headers,
           },
         },

@@ -56,6 +56,7 @@ import WarningBox from "./components/generics/WarningBox";
 import {
   baseApiUrl,
   apiHeaders,
+  registerRequestHeaderProvider,
   graphql,
   graphqlMutation,
   graphqlWithVariables,
@@ -226,6 +227,7 @@ export {
   AdvancedFiltersDialog,
   fetchCustomFilter,
   apiHeaders,
+  registerRequestHeaderProvider,
   graphql,
   graphqlWithVariables,
   graphqlMutation,

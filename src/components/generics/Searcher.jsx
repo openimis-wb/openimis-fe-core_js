@@ -26,6 +26,7 @@ import { DEFAULT, ENTER_KEY, ROWS_PER_PAGE_OPTIONS } from "../../constants";
 import { formatSorter, sort } from "../../helpers/api";
 import { formatMessage } from "../../helpers/i18n";
 import withModulesManager from "../../helpers/modules";
+import { mergeContributedColumns, mergeContributedExport } from "../../helpers/searcherColumns";
 import Contributions from "./Contributions";
 import FormattedMessage from "./FormattedMessage";
 import ProgressOrError from "./ProgressOrError";
@@ -561,24 +562,43 @@ class Searcher extends Component {
     );
   };
 
+  sortAction = (s) =>
+    !!s
+      ? [
+          () =>
+            this.setState(
+              (state, props) => ({ orderBy: sort(state.orderBy, s[0], s[1]) }),
+              (e) => this.requestFetch(this.filtersToQueryParams()),
+            ),
+          () => formatSorter(this.state.orderBy, s[0], s[1]),
+        ]
+      : [null, () => null];
+
   headerActions = (filters) => {
     if (!!this.props.headerActions) return this.props.headerActions(filters);
     if (!!this.props.sorts) {
-      return this.props.sorts(filters).map((s) =>
-        !!s
-          ? [
-              () =>
-                this.setState(
-                  (state, props) => ({ orderBy: sort(state.orderBy, s[0], s[1]) }),
-                  (e) => this.requestFetch(this.filtersToQueryParams()),
-                ),
-              () => formatSorter(this.state.orderBy, s[0], s[1]),
-            ]
-          : [null, () => null],
-      );
+      return this.props.sorts(filters).map(this.sortAction);
     }
     return [];
   };
+
+  columnContributions = () => {
+    const { columnsContributionKey, modulesManager } = this.props;
+    if (!columnsContributionKey) return [];
+    return modulesManager.getContribs(columnsContributionKey) || [];
+  };
+
+  tableColumns = (filters) =>
+    mergeContributedColumns(
+      {
+        headers: this.props.headers(filters),
+        formatters: this.props.itemFormatters(filters),
+        headerActions: this.headerActions(filters),
+        aligns: !!this.props.aligns && this.props.aligns(),
+      },
+      this.columnContributions(),
+      this.sortAction,
+    );
 
   renderSearcherActions = () => {
     const { searcherActions } = this.props;
@@ -673,6 +693,8 @@ class Searcher extends Component {
       infoButtonContent = "",
       searcherActionsPosition = "top-right",
     } = this.props;
+    const contributedExport = mergeContributedExport(exportFields, exportFieldsColumns, this.columnContributions());
+    const columns = errorItems && !items?.length ? null : this.tableColumns(this.state.filters);
     return (
       <StyledSearcher>
         {!!FilterPane && (
@@ -753,8 +775,8 @@ class Searcher extends Component {
                           filters={this.state.filters}
                           exportable={exportable}
                           exportFetch={exportFetch}
-                          exportFields={exportFields}
-                          exportFieldsColumns={exportFieldsColumns}
+                          exportFields={contributedExport.exportFields}
+                          exportFieldsColumns={contributedExport.exportFieldsColumns}
                           exportFieldLabel={exportFieldLabel}
                           chooseExportableColumns={chooseExportableColumns}
                           additionalExportFields={additionalExportFields}
@@ -777,10 +799,10 @@ class Searcher extends Component {
                     selectWithCheckbox={selectWithCheckbox}
                     fetching={fetchingItems}
                     preHeaders={!!preHeaders && preHeaders(this.state.selection)}
-                    headers={headers(this.state.filters)}
-                    headerActions={this.headerActions(this.state.filters)}
-                    aligns={!!aligns && aligns()}
-                    itemFormatters={itemFormatters(this.state.filters)}
+                    headers={columns.headers}
+                    headerActions={columns.headerActions}
+                    aligns={columns.aligns}
+                    itemFormatters={columns.formatters}
                     rowLocked={(i) => rowLocked(this.state.selection, i) || isRowMutationPending(this.props.mutations, i)}
                     rowHighlighted={(i) => rowHighlighted(this.state.selection, i)}
                     rowHighlightedAlt={(i) => rowHighlightedAlt(this.state.selection, i)}

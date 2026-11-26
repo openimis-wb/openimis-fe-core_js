@@ -84,6 +84,7 @@ import MetadataViewer from "./components/generics/MetadataViewer";
 import {
   baseApiUrl,
   apiHeaders,
+  registerRequestHeaderProvider,
   graphql,
   graphqlMutation,
   graphqlWithVariables,
@@ -355,6 +356,7 @@ export {
   AdvancedFiltersDialog,
   fetchCustomFilter,
   apiHeaders,
+  registerRequestHeaderProvider,
   graphql,
   graphqlWithVariables,
   graphqlMutation,

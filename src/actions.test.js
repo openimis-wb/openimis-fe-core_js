@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RSAA } from "redux-api-middleware";
 import { applyMiddleware, createStore } from "redux";
 
-import { graphqlMutation, initialize } from "./actions";
+import { apiHeaders, fetch as apiFetch, graphqlMutation, initialize, registerRequestHeaderProvider } from "./actions";
 import { getLocalStorage } from "./helpers/useLocalStorage";
 import reducer from "./reducer";
 
@@ -225,5 +225,76 @@ describe("initialize", () => {
 
     expect(requests.some((r) => r.query?.includes("getCsrfToken"))).toBe(false);
     expect(getLocalStorage("csrfToken")).toBe("cookie-token");
+  });
+});
+
+describe("registerRequestHeaderProvider", () => {
+  const removals = [];
+  const register = (provider) => {
+    const remove = registerRequestHeaderProvider(provider);
+    removals.push(remove);
+    return remove;
+  };
+
+  afterEach(() => {
+    removals.splice(0).forEach((remove) => remove());
+  });
+
+  /** Dispatches a fetch and returns the headers of the RSAA action it produced. */
+  const sentHeaders = async (config = {}) => {
+    let headers;
+    const capture = () => (next) => (action) => {
+      headers = action[RSAA]?.headers;
+      return Promise.resolve({ type: "DONE", payload: {} });
+    };
+    const store = createStore(
+      (state, action) => ({ core: reducer(state?.core, action) }),
+      applyMiddleware(thunk, capture),
+    );
+    await store.dispatch(apiFetch({ endpoint: "/api/graphql", method: "POST", types: ["REQ", "RESP", "ERR"], ...config }));
+    return headers;
+  };
+
+  it("adds the provided headers to apiHeaders()", () => {
+    register(() => ({ "X-Programme": "p1" }));
+
+    expect(apiHeaders()).toEqual({ "Content-Type": "application/json", "X-Programme": "p1" });
+  });
+
+  it("adds the provided headers to every fetch()", async () => {
+    register(() => ({ "X-Programme": "p1" }));
+
+    expect((await sentHeaders())["X-Programme"]).toBe("p1");
+  });
+
+  it("lets the headers passed by the caller win", async () => {
+    register(() => ({ "X-Programme": "p1" }));
+
+    expect((await sentHeaders({ headers: { "X-Programme": "p2" } }))["X-Programme"]).toBe("p2");
+  });
+
+  it("reads the provider at request time and skips empty values", () => {
+    let current = "p1";
+    register(() => ({ "X-Programme": current, "X-Empty": "", "X-Null": null, "X-Undefined": undefined }));
+
+    expect(apiHeaders()["X-Programme"]).toBe("p1");
+    current = "p2";
+    expect(apiHeaders()["X-Programme"]).toBe("p2");
+    expect(apiHeaders()).not.toHaveProperty("X-Empty");
+    expect(apiHeaders()).not.toHaveProperty("X-Null");
+    expect(apiHeaders()).not.toHaveProperty("X-Undefined");
+  });
+
+  it("tolerates a provider that returns nothing", () => {
+    register(() => undefined);
+
+    expect(apiHeaders()).toEqual({ "Content-Type": "application/json" });
+  });
+
+  it("stops adding headers once the registration is removed", () => {
+    const remove = register(() => ({ "X-Programme": "p1" }));
+    remove();
+
+    expect(apiHeaders()).toEqual({ "Content-Type": "application/json" });
   });
 });
